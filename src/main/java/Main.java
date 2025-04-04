@@ -164,9 +164,6 @@ public class Main {
                     System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
                     lastFreq += detectedFrequency;
 
-//                    if (!userFeedback.equals("No String detected within tolerance")) {
-//
-//                    }
                 }
             }
 
