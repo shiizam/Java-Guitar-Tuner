@@ -74,50 +74,6 @@ public class Main {
     }
 
 
-//    public static double detectFrequency(double[] audioSamples) {
-//        int size = audioSamples.length; // Determines the amount of calculations
-//        double[] autocorrelation = new double[size]; // Will contain the lag values
-//
-//        // Step 1: Apply Hann window to reduce spectral leakage
-//        for (int i = 0; i < size; i++) {
-//            double hann = 0.5 * (1 - Math.cos(2 * Math.PI * i / (size - 1)));
-//            audioSamples[i] *= hann;
-//        }
-//
-//        // Step 2: Compute the autocorrelation
-//        for (int lag = 0; lag < size; lag++) {
-//            for (int i = 0; i < size - lag; i++) {
-//                autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
-//            }
-//        }
-//
-//        // Step 3: Normalize the autocorrelation values
-//        for (int lag = 0; lag < size; lag++) {
-//            autocorrelation[lag] /= autocorrelation[0];
-//        }
-//
-//        // Step 4: Find the first significant peak
-//        int fundamentalLag = -1;
-//        for (int lag = 100; lag < size - 1; lag++) {
-//            if (autocorrelation[lag] > autocorrelation[lag - 1] && autocorrelation[lag] > autocorrelation[lag + 1]) {
-//                fundamentalLag = lag;
-//                break;
-//            }
-//        }
-//
-//        // Step 5: Convert lag to frequency
-//        double frequency = SAMPLE_RATE / fundamentalLag;
-//
-//        if (frequency < 50 || frequency > 500) {
-//            System.out.println("Discarding invalid frequency: " + frequency);
-//            return -1;
-//        }
-//
-//
-//        // Step 6: Return frequency
-//        return  frequency;
-//    }
-
     public static double detectFrequency(double[] audioSamples) {
         int audioArrayLength = audioSamples.length;
         double[] fftBuffer = new double[audioArrayLength * 2];
@@ -137,8 +93,15 @@ public class Main {
             magnitudes[i] = Math.sqrt(real * real * imag * imag);
         }
 
-        return applyHPS(magnitudes);
+        double detectedFreq = applyHPS(magnitudes);
+
+        if (detectedFreq < 50 || detectedFreq > 500) {
+            return -1;
+        }
+
+        return detectedFreq;
     }
+
 
     public static double applyHPS(double[] magnitudes) {
         int maxIndex = magnitudes.length / 5;
@@ -162,6 +125,7 @@ public class Main {
     public static String matchStringFrequency(double detectedFreq) {
         double closestFreq = stringFrequencies[0];
         String closestString = "Low E";
+        double tolerance = 2.0;
 
         // Find the closest string based on frequency
         for (int i = 1; i < stringFrequencies.length; i++) {
@@ -172,13 +136,18 @@ public class Main {
         }
 
         // Determine tuning status
-        if (Math.abs(detectedFreq - closestFreq) < 2) {
-            return closestString + " is in tune!";
-        } else if (detectedFreq < closestFreq) {
-            return closestString + " is too low!";
-        } else {
-            return closestString + " is too high!";
+        if (Math.abs(detectedFreq - closestFreq) < tolerance) {
+            if (Math.abs(detectedFreq - closestFreq) < 1) {
+                return closestString + " is in tune!";
+            } else if (detectedFreq < closestFreq) {
+                return closestString + " is too low!";
+            } else {
+                return closestString + " is too high!";
+            }
         }
+
+        // Return message
+        return "No String detected within tolerance";
     }
 
     public static void tuningLoop(TargetDataLine soundData) {
@@ -195,8 +164,11 @@ public class Main {
 
                 if (detectedFrequency > 0 && Math.abs(detectedFrequency - lastFreq) > 2) {
                     String userFeedback = matchStringFrequency(detectedFrequency);
-                    System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
-                    lastFreq += detectedFrequency;
+
+                    if (!userFeedback.equals("No String detected within tolerance")) {
+                        System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
+                        lastFreq += detectedFrequency;
+                    }
                 }
             }
 
