@@ -1,6 +1,8 @@
 import javax.sound.sampled.*;
 import java.util.Scanner;
 
+import org.jtransforms.fft.DoubleFFT_1D;
+
 
 public class Main {
     // Raw data format specs
@@ -72,72 +74,88 @@ public class Main {
     }
 
 
+//    public static double detectFrequency(double[] audioSamples) {
+//        int size = audioSamples.length; // Determines the amount of calculations
+//        double[] autocorrelation = new double[size]; // Will contain the lag values
+//
+//        // Step 1: Apply Hann window to reduce spectral leakage
+//        for (int i = 0; i < size; i++) {
+//            double hann = 0.5 * (1 - Math.cos(2 * Math.PI * i / (size - 1)));
+//            audioSamples[i] *= hann;
+//        }
+//
+//        // Step 2: Compute the autocorrelation
+//        for (int lag = 0; lag < size; lag++) {
+//            for (int i = 0; i < size - lag; i++) {
+//                autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
+//            }
+//        }
+//
+//        // Step 3: Normalize the autocorrelation values
+//        for (int lag = 0; lag < size; lag++) {
+//            autocorrelation[lag] /= autocorrelation[0];
+//        }
+//
+//        // Step 4: Find the first significant peak
+//        int fundamentalLag = -1;
+//        for (int lag = 100; lag < size - 1; lag++) {
+//            if (autocorrelation[lag] > autocorrelation[lag - 1] && autocorrelation[lag] > autocorrelation[lag + 1]) {
+//                fundamentalLag = lag;
+//                break;
+//            }
+//        }
+//
+//        // Step 5: Convert lag to frequency
+//        double frequency = SAMPLE_RATE / fundamentalLag;
+//
+//        if (frequency < 50 || frequency > 500) {
+//            System.out.println("Discarding invalid frequency: " + frequency);
+//            return -1;
+//        }
+//
+//
+//        // Step 6: Return frequency
+//        return  frequency;
+//    }
+
     public static double detectFrequency(double[] audioSamples) {
-        int size = audioSamples.length; // Determines the amount of calculations
-        double[] autocorrelation = new double[size]; // Will contain the lag values
+        int audioArrayLength = audioSamples.length;
+        double[] fftBuffer = new double[audioArrayLength * 2];
 
-        // Step 1: Apply Hann window to reduce spectral leakage
-        for (int i = 0; i < size; i++) {
-            double hann = 0.5 * (1 - Math.cos(2 * Math.PI * i / (size - 1)));
-            audioSamples[i] *= hann;
+        for (int i = 0; i < audioArrayLength; i++) {
+            fftBuffer[i*2] = audioSamples[i];
         }
 
-        // Step 2: Compute the autocorrelation
-        for (int lag = 0; lag < size; lag++) {
-            for (int i = 0; i < size - lag; i++) {
-                autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
-            }
+        DoubleFFT_1D fft = new DoubleFFT_1D(audioArrayLength);
+        fft.realForwardFull(fftBuffer);
+
+        // Compute Magnitude Spectrum
+        double[] magnitudes = new double[audioArrayLength / 2];
+        for (int i = 0; i < audioArrayLength / 2; i++) {
+            double real = fftBuffer[2 * i];
+            double imag = fftBuffer[2 * i + 1];
+            magnitudes[i] = Math.sqrt(real * real * imag * imag);
         }
 
-        // Step 3: Normalize the autocorrelation values
-        for (int lag = 0; lag < size; lag++) {
-            autocorrelation[lag] /= autocorrelation[0];
-        }
-
-        // Step 4: Find the first significant peak
-        int fundamentalLag = -1;
-        for (int lag = 100; lag < size - 1; lag++) {
-            if (autocorrelation[lag] > autocorrelation[lag - 1] && autocorrelation[lag] > autocorrelation[lag + 1]) {
-                fundamentalLag = lag;
-                break;
-            }
-        }
-
-        // Step 5: Convert lag to frequency
-        double frequency = SAMPLE_RATE / fundamentalLag;
-
-        if (frequency < 50 || frequency > 500) {
-            System.out.println("Discarding invalid frequency: " + frequency);
-            return -1;
-        }
-
-
-        // Step 6: Return frequency
-        return  frequency;
+        return applyHPS(magnitudes);
     }
 
+    public static double applyHPS(double[] magnitudes) {
+        int maxIndex = magnitudes.length / 5;
+        double[] hps = new double[maxIndex];
 
-    public static double averageFrequencies(TargetDataLine soundData, int numSamples) {
-        double sum = 0;
-        int validSamples = 0;
+        for (int i = 0; i < maxIndex; i++) {
+            hps[i] = magnitudes[i] * magnitudes[i * 2] * magnitudes[i * 3];
+        }
 
-        for (int i = 0; i < numSamples; i++) {
-
-            byte[] buffer = new byte[BUFFER_SIZE];  // Create byte array to store raw audio data
-            int bytesRead = soundData.read(buffer, 0, buffer.length);
-
-            if (bytesRead > 0) {
-                double[] audioSamples = convertToAudioSamples(buffer, bytesRead);
-                double detectedFreq = detectFrequency(audioSamples);
-
-                if (detectedFreq > 0) {
-                    sum += detectedFreq;
-                    validSamples++;
-                }
+        int bestIndex = 0;
+        for (int i = 1; i < maxIndex; i++) {
+            if (hps[i] > hps[bestIndex]) {
+                bestIndex = i;
             }
         }
 
-        return validSamples > 0 ? sum / validSamples : -1;
+        return SAMPLE_RATE * bestIndex / magnitudes.length;
     }
 
 
@@ -168,14 +186,18 @@ public class Main {
 
         while (true) {
 
-            // Get average freq of 5 samples
-            double stableFreq = averageFrequencies(soundData, NUM_SAMPLES_TO_AVG);
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead = soundData.read(buffer, 0, buffer.length);
 
-            // Only will print now if change is greater than 2 hz
-            if (stableFreq > 0 && Math.abs(stableFreq - lastFreq) > 2) {
-                String userFeedback = matchStringFrequency(stableFreq);
-                System.out.println("Fundamental Frequency: " + stableFreq + " Hz -> " + userFeedback);
-                lastFreq += stableFreq;
+            if (bytesRead > 0) {
+                double[] audioSamples = convertToAudioSamples(buffer, bytesRead);
+                double detectedFrequency = detectFrequency(audioSamples);
+
+                if (detectedFrequency > 0 && Math.abs(detectedFrequency - lastFreq) > 2) {
+                    String userFeedback = matchStringFrequency(detectedFrequency);
+                    System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
+                    lastFreq += detectedFrequency;
+                }
             }
 
             try {
