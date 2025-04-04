@@ -9,9 +9,8 @@ public class Main {
     private static final float SAMPLE_RATE = 48000.0f;
     private static final int SAMPLE_SIZE = 16;
     private static final int CHANNEL_SIZE = 1;
-    private static final int BUFFER_SIZE = 4096;
+    private static final int BUFFER_SIZE = 2048;
 
-    private static final int NUM_SAMPLES_TO_AVG = 5;
 
     // Guitar String Frequencies
     private static final double[] stringFrequencies = {82.41, 110.00, 146.83, 196.00, 246.94, 329.63};
@@ -95,7 +94,7 @@ public class Main {
 
         double detectedFreq = applyHPS(magnitudes);
 
-        if (detectedFreq < 50 || detectedFreq > 500) {
+        if (detectedFreq < 70 || detectedFreq > 500) {
             return -1;
         }
 
@@ -125,7 +124,7 @@ public class Main {
     public static String matchStringFrequency(double detectedFreq) {
         double closestFreq = stringFrequencies[0];
         String closestString = "Low E";
-        double tolerance = 12.0;
+        double tolerance = 2.0;
 
         // Find the closest string based on frequency
         for (int i = 1; i < stringFrequencies.length; i++) {
@@ -162,11 +161,12 @@ public class Main {
 
                 if (detectedFrequency > 0 && Math.abs(detectedFrequency - lastFreq) > 2) {
                     String userFeedback = matchStringFrequency(detectedFrequency);
+                    System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
+                    lastFreq += detectedFrequency;
 
-                    if (!userFeedback.equals("No String detected within tolerance")) {
-                        System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
-                        lastFreq += detectedFrequency;
-                    }
+//                    if (!userFeedback.equals("No String detected within tolerance")) {
+//
+//                    }
                 }
             }
 
