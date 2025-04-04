@@ -9,7 +9,7 @@ public class Main {
     private static final float SAMPLE_RATE = 48000.0f;
     private static final int SAMPLE_SIZE = 16;
     private static final int CHANNEL_SIZE = 1;
-    private static final int BUFFER_SIZE = 2048;
+    private static final int BUFFER_SIZE = 4096;
 
     private static final int NUM_SAMPLES_TO_AVG = 5;
 
@@ -125,7 +125,7 @@ public class Main {
     public static String matchStringFrequency(double detectedFreq) {
         double closestFreq = stringFrequencies[0];
         String closestString = "Low E";
-        double tolerance = 2.0;
+        double tolerance = 12.0;
 
         // Find the closest string based on frequency
         for (int i = 1; i < stringFrequencies.length; i++) {
@@ -136,7 +136,7 @@ public class Main {
         }
 
         // Determine tuning status
-        if (Math.abs(detectedFreq - closestFreq) < tolerance) {
+        if (Math.abs(detectedFreq - closestFreq) <= tolerance) {
             if (Math.abs(detectedFreq - closestFreq) < 1) {
                 return closestString + " is in tune!";
             } else if (detectedFreq < closestFreq) {
@@ -145,8 +145,6 @@ public class Main {
                 return closestString + " is too high!";
             }
         }
-
-        // Return message
         return "No String detected within tolerance";
     }
 
