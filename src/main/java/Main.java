@@ -84,6 +84,11 @@ public class Main {
             audioSamples[i] *= hann;
         }
 
+        System.out.println("Autocorrelation Values:");
+        for (double value : autocorrelation) {
+            System.out.println(value + " Hz");
+        }
+
         // Step 2: Compute Autocorrelation
         for (int lag = 0; lag < size; lag++) {
             for (int i = 0; i < size - lag; i++) {
