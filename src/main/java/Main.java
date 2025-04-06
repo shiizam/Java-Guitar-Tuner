@@ -110,9 +110,7 @@ public class Main {
         if (fundamentalLag > 0) {
             // We found a significant peak, calculate the frequency
             double frequency = SAMPLE_RATE / fundamentalLag;
-
-            // If the calculated frequency is too high (e.g., due to noise), use a fallback frequency
-            if (frequency > SAMPLE_RATE / 2) { // Frequency should not exceed Nyquist limit
+            if (frequency < 65.0 || frequency > 1000.0) {
                 return 0.0;
             }
             return frequency;
@@ -159,7 +157,6 @@ public class Main {
     }
 
     public static void tuningLoop(TargetDataLine soundData) {
-        double lastFreq = -1;
 
         while (true) {
 
