@@ -110,7 +110,7 @@ public class Main {
         if (fundamentalLag > 0) {
             // We found a significant peak, calculate the frequency
             double frequency = SAMPLE_RATE / fundamentalLag;
-            if (frequency < 65.0 || frequency > 1000.0) {
+            if (frequency < 65.0 || frequency > 450.0) {
                 return 0.0;
             }
             return frequency;
@@ -180,7 +180,7 @@ public class Main {
 
                     // Show tuning feedback if currently 'Locked'
                     if (lockedStringIndex != -1) {
-                        String feedback = matchStringFrequency(lockedStringIndex);
+                        String feedback = matchStringFrequency(detectedFrequency);
                         System.out.println("[" + getStringName(lockedStringIndex) + "] " + detectedFrequency + " Hz -> " + feedback);
                     }
 
