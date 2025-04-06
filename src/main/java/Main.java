@@ -7,7 +7,7 @@ public class Main {
     private static final float SAMPLE_RATE = 48000.0f;
     private static final int SAMPLE_SIZE = 16;
     private static final int CHANNEL_SIZE = 1;
-    private static final int BUFFER_SIZE = 2048;
+    private static final int BUFFER_SIZE = 8192;
 
 
     // Guitar String Frequencies
@@ -97,11 +97,17 @@ public class Main {
         }
 
         // Step 4: Find first sig peak
+
+        int minLag = (int)(SAMPLE_RATE / 400);
+        int maxLag = (int)(SAMPLE_RATE / 65);
+
+        double maxVal = -1;
         int fundamentalLag = -1;
-        for (int lag = 1; lag < size - 1; lag++) {
-            if (autocorrelation[lag] > autocorrelation[lag - 1] && autocorrelation[lag] > autocorrelation[lag + 1]) {
+
+        for (int lag = minLag; lag <  maxLag; lag++) {
+            if (autocorrelation[lag] > maxVal) {
+                maxVal = autocorrelation[lag];
                 fundamentalLag = lag;
-                break;
             }
         }
 
