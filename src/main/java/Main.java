@@ -149,14 +149,10 @@ public class Main {
 
         double difference = detectedFreq - targetFreq;
 
-        System.out.println("Difference: " + difference);
-
-
         // Determine tuning status
-
-        if (Math.abs(difference) < 1) {
+        if (Math.abs(difference) < 2.0) {
             return targetString + " is in tune!";
-        } else if (difference < 0) {
+        } else if (difference < 0.0) {
             return targetString + " is too low!";
         } else {
             return targetString + " is too high!";
