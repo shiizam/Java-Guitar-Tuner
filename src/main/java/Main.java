@@ -1,8 +1,6 @@
 import javax.sound.sampled.*;
 import java.util.Scanner;
 
-import org.jtransforms.fft.DoubleFFT_1D;
-
 
 public class Main {
     // Raw data format specs
@@ -13,6 +11,9 @@ public class Main {
 
 
     // Guitar String Frequencies
+    private static int lockedStringIndex = -1;
+    private static final double LOCK_RADIUS_HZ = 6.0;
+    private static final double UNLOCK_RADIUS_HZ = 10.0;
     private static final double[] stringFrequencies = {82.41, 110.00, 146.83, 196.00, 246.94, 329.63};
 
     // Get Guitar string name
@@ -56,7 +57,7 @@ public class Main {
 
 
     public static double[] convertToAudioSamples(byte[] buffer, int bytesRead) {
-        //
+
         double[] audioSamples = new double[bytesRead / 2];
 
         for (int i = 0, j = 0; i < bytesRead - 1; i += 2, j++) {
@@ -74,77 +75,75 @@ public class Main {
 
 
     public static double detectFrequency(double[] audioSamples) {
-        int audioArrayLength = audioSamples.length;
-        double[] fftBuffer = new double[audioArrayLength * 2];
+        int size = audioSamples.length;
+        double[] autocorrelation = new double[size];
 
-        for (int i = 0; i < audioArrayLength; i++) {
-            fftBuffer[i*2] = audioSamples[i];
+        // Step 1: Hann Window
+        for (int i = 0; i < size; i++) {
+            double hann = 0.5 * (1 - Math.cos(2 * Math.PI * i / (size - 1)));
+            audioSamples[i] *= hann;
         }
 
-        DoubleFFT_1D fft = new DoubleFFT_1D(audioArrayLength);
-        fft.realForwardFull(fftBuffer);
-
-        // Compute Magnitude Spectrum
-        double[] magnitudes = new double[audioArrayLength / 2];
-        for (int i = 0; i < audioArrayLength / 2; i++) {
-            double real = fftBuffer[2 * i];
-            double imag = fftBuffer[2 * i + 1];
-            magnitudes[i] = Math.sqrt(real * real * imag * imag);
-        }
-
-        double detectedFreq = applyHPS(magnitudes);
-
-        if (detectedFreq < 70 || detectedFreq > 500) {
-            return -1;
-        }
-
-        return detectedFreq;
-    }
-
-
-    public static double applyHPS(double[] magnitudes) {
-        int maxIndex = magnitudes.length / 5;
-        double[] hps = new double[maxIndex];
-
-        for (int i = 0; i < maxIndex; i++) {
-            hps[i] = magnitudes[i] * magnitudes[i * 2] * magnitudes[i * 3];
-        }
-
-        int bestIndex = 0;
-        for (int i = 1; i < maxIndex; i++) {
-            if (hps[i] > hps[bestIndex]) {
-                bestIndex = i;
+        // Step 2: Compute Autocorrelation
+        for (int lag = 0; lag < size; lag++) {
+            for (int i = 0; i < size - lag; i++) {
+                autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
             }
         }
 
-        return SAMPLE_RATE * bestIndex / magnitudes.length;
+        // Step 3: Normalize
+        for (int lag = 0; lag < size; lag++) {
+            autocorrelation[lag] /= autocorrelation[0];
+        }
+
+        // Step 4: Find first sig peak
+        int fundamentalLag = -1;
+        for (int lag = 1; lag < size - 1; lag++) {
+            if (autocorrelation[lag] > autocorrelation[lag - 1] && autocorrelation[lag] > autocorrelation[lag + 1]) {
+                fundamentalLag = lag;
+                break;
+            }
+        }
+
+        // Step 5: Convert Lag to freq
+        double frequency = SAMPLE_RATE / fundamentalLag;
+        return frequency;
+    }
+
+    public static int getClosestString(double freq) {
+        double closestFreq = stringFrequencies[0];
+        int closestString = 0;
+
+        for (int i = 1; i < stringFrequencies.length; i++) {
+            double distance = Math.abs(freq - stringFrequencies[i]);
+
+            if (distance < Math.abs(freq - closestFreq) && distance <= LOCK_RADIUS_HZ) {
+                closestFreq = stringFrequencies[i];
+                closestString = i;
+            }
+        }
+        return closestString;
     }
 
 
     public static String matchStringFrequency(double detectedFreq) {
-        double closestFreq = stringFrequencies[0];
-        String closestString = "Low E";
-        double tolerance = 2.0;
 
         // Find the closest string based on frequency
-        for (int i = 1; i < stringFrequencies.length; i++) {
-            if (Math.abs(detectedFreq - stringFrequencies[i]) < Math.abs(detectedFreq - closestFreq)) {
-                closestFreq = stringFrequencies[i];
-                closestString = getStringName(i);
-            }
-        }
+        double targetFreq = stringFrequencies[lockedStringIndex];
+        String targetString = getStringName(lockedStringIndex);
+
+        double difference = detectedFreq - targetFreq;
+
 
         // Determine tuning status
-        if (Math.abs(detectedFreq - closestFreq) <= tolerance) {
-            if (Math.abs(detectedFreq - closestFreq) < 1) {
-                return closestString + " is in tune!";
-            } else if (detectedFreq < closestFreq) {
-                return closestString + " is too low!";
-            } else {
-                return closestString + " is too high!";
-            }
+
+        if (Math.abs(difference) < 1) {
+            return targetString + " is in tune!";
+        } else if (difference < 0) {
+            return targetString + " is too low!";
+        } else {
+            return targetString + " is too high!";
         }
-        return "No String detected within tolerance";
     }
 
     public static void tuningLoop(TargetDataLine soundData) {
@@ -159,10 +158,22 @@ public class Main {
                 double[] audioSamples = convertToAudioSamples(buffer, bytesRead);
                 double detectedFrequency = detectFrequency(audioSamples);
 
-                if (detectedFrequency > 0 && Math.abs(detectedFrequency - lastFreq) > 2) {
-                    String userFeedback = matchStringFrequency(detectedFrequency);
-                    System.out.println("Fundamental Frequency: " + detectedFrequency + " Hz -> " + userFeedback);
-                    lastFreq += detectedFrequency;
+                if (detectedFrequency > 0) {
+                    if (lockedStringIndex == -1) {
+                        lockedStringIndex = getClosestString(detectedFrequency);
+                    } else {
+                        double lockedFreq = stringFrequencies[lockedStringIndex];
+                        if (Math.abs(detectedFrequency - lockedFreq) > UNLOCK_RADIUS_HZ) {
+                            lockedStringIndex = -1;
+                            continue;
+                        }
+                    }
+
+                    // Show tuning feedback if currently 'Locked'
+                    if (lockedStringIndex != -1) {
+                        String feedback = getStringName(lockedStringIndex);
+                        System.out.println("[" + getStringName(lockedStringIndex) + "] " + detectedFrequency + " Hz -> " + feedback);
+                    }
 
                 }
             }
