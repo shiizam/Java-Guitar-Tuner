@@ -76,6 +76,18 @@ public class Main {
 
     public static double detectFrequency(double[] audioSamples) {
         int size = audioSamples.length;
+
+        // Step 0: Skip if audio signal is too quiet
+        double sumSquares = 0;
+        for (double sample : audioSamples) {
+            sumSquares += sample * sample;
+        }
+
+        double rms = Math.sqrt(sumSquares / size);
+        if (rms < 0.01) { // adjust threshold if needed
+            return 0.0;
+        }
+
         double[] autocorrelation = new double[size];
 
         // Step 1: Hann Window
