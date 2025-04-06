@@ -111,6 +111,8 @@ public class Main {
             }
         }
 
+        if (maxVal < 0.2) return 0.0;
+
         // Step 5: Convert Lag to Frequency
         if (fundamentalLag > 0) {
             // We found a significant peak, calculate the frequency
