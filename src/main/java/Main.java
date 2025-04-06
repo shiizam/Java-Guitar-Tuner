@@ -84,21 +84,12 @@ public class Main {
             audioSamples[i] *= hann;
         }
 
-        System.out.println("Autocorrelation Values:");
-        for (double value : autocorrelation) {
-            System.out.println(value + " Hz");
-        }
 
         // Step 2: Compute Autocorrelation
         for (int lag = 0; lag < size; lag++) {
             for (int i = 0; i < size - lag; i++) {
                 autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
             }
-        }
-
-        System.out.println("Autocorrelation Values:");
-        for (double value : autocorrelation) {
-            System.out.print(value + " ");
         }
 
         // Step 3: Normalize
@@ -115,9 +106,20 @@ public class Main {
             }
         }
 
-        // Step 5: Convert Lag to freq
-        double frequency = SAMPLE_RATE / fundamentalLag;
-        return frequency;
+        // Step 5: Convert Lag to Frequency
+        if (fundamentalLag > 0) {
+            // We found a significant peak, calculate the frequency
+            double frequency = SAMPLE_RATE / fundamentalLag;
+
+            // If the calculated frequency is too high (e.g., due to noise), use a fallback frequency
+            if (frequency > SAMPLE_RATE / 2) { // Frequency should not exceed Nyquist limit
+                return 0.0;
+            }
+            return frequency;
+        } else {
+            // If no significant peak is found, return 0.0 (or a default value)
+            return 0.0;
+        }
     }
 
     public static int getClosestString(double freq) {
@@ -181,7 +183,7 @@ public class Main {
 
                     // Show tuning feedback if currently 'Locked'
                     if (lockedStringIndex != -1) {
-                        String feedback = getStringName(lockedStringIndex);
+                        String feedback = matchStringFrequency(lockedStringIndex);
                         System.out.println("[" + getStringName(lockedStringIndex) + "] " + detectedFrequency + " Hz -> " + feedback);
                     }
 
