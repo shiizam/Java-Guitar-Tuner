@@ -143,6 +143,8 @@ public class Main {
 
         double difference = detectedFreq - targetFreq;
 
+        System.out.println("Difference: " + difference);
+
 
         // Determine tuning status
 
