@@ -91,6 +91,11 @@ public class Main {
             }
         }
 
+        System.out.println("Autocorrelation Values:");
+        for (double value : autocorrelation) {
+            System.out.print(value + " ");
+        }
+
         // Step 3: Normalize
         for (int lag = 0; lag < size; lag++) {
             autocorrelation[lag] /= autocorrelation[0];
