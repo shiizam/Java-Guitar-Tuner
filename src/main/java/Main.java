@@ -14,7 +14,20 @@ public class Main {
     private static int lockedStringIndex = -1;
     private static final double LOCK_RADIUS_HZ = 6.0;
     private static final double UNLOCK_RADIUS_HZ = 10.0;
-    private static final double[] stringFrequencies = {82.41, 110.00, 146.83, 196.00, 246.94, 329.63};
+
+    private static double[] stringFrequencies = new double[6];
+
+    private static final String[] tuningTypes = {
+            "Standard (EADGBe)",
+            "Drop D (DADGBe)",
+            "Half Step Down (D#G#C#F#A#d#)"
+    };
+
+    private static final double[][] allTunings = {
+            {82.41, 110.00, 146.83, 196.00, 246.94, 329.63}, // Standard Tuning Freq
+            {73.42, 110.00, 146.83, 196.00, 246.94, 329.63},  // Drop 'D' Tuning Freq
+            {77.78, 103.83, 138.59, 185.00, 233.08, 311.13}  // Half Step Down Tuning
+    };
 
     // Get Guitar string name
     private static String getStringName(int index) {
@@ -31,6 +44,12 @@ public class Main {
     }
 
 
+    /**
+    * Get user to select appropriate recording device.
+    *
+    * @param scnr Scanner - Scanner to get user choice
+    * @return Mixer.Info - The information about the chose recording device
+    */
     public static Mixer.Info getRecordingDevice(Scanner scnr) {
 
         // Get all recordingDevices
@@ -55,7 +74,40 @@ public class Main {
         }
     }
 
+    /**
+     * Get users to select a specified tuning.
+     *
+     * @param scnr Scanner - Scanner to get user tuning selection
+     * @return allTunings[i] double[] - return the appropriate freq in the allTunings array for chosen tuning
+     */
+    public static double[] getUserTuning(Scanner scnr) {
+        System.out.println("Available tuning types:");
+        for (int i = 0; i < tuningTypes.length; i++) {
+            System.out.println((i+1) + ": " + tuningTypes[i]);
+        }
 
+        // Get User Choice
+        System.out.println("Select a Tuning (1-" + tuningTypes.length + "): ");
+        int userSelection = Integer.parseInt(scnr.nextLine()) - 1;
+
+        // Validate User Selection
+        if (userSelection >= 0 && userSelection < tuningTypes.length) {
+            return allTunings[userSelection];
+        } else {
+            System.out.println("Invalid selection. Defaulting to Standard tuning.");
+            return allTunings[0];
+        }
+    }
+
+
+     /**
+     * Convert raw data to audio samples. This is done by looping through the raw data and shifting the 8 bits
+     * on the far right to the left. To ensure the correct bits are moved, mask the right side bits with '0xFF'
+     *
+     * @param buffer byte[] - The buffer holding the raw audio data
+     * @param bytesRead int - The raw data captured by the listener
+     * @return audioSamples double[] - The converted audio data
+     */
     public static double[] convertToAudioSamples(byte[] buffer, int bytesRead) {
 
         double[] audioSamples = new double[bytesRead / 2];
@@ -74,6 +126,12 @@ public class Main {
     }
 
 
+    /**
+     * Detect the frequency from the collected audio samples.
+     *
+     * @param audioSamples double[] - the converted audio samples
+     * @return frequency double - the frequency of the current sample
+     */
     public static double detectFrequency(double[] audioSamples) {
         int size = audioSamples.length;
         double[] autocorrelation = new double[size];
@@ -96,7 +154,7 @@ public class Main {
             autocorrelation[lag] /= autocorrelation[0];
         }
 
-        // Step 4: Find first sig peak
+        // Step 4: Find the sig peak
 
         int minLag = (int)(SAMPLE_RATE / 400);
         int maxLag = (int)(SAMPLE_RATE / 65);
@@ -111,26 +169,32 @@ public class Main {
             }
         }
 
+        // Remove 'noise' data
         if (maxVal < 0.2) return 0.0;
 
         // Step 5: Convert Lag to Frequency
         if (fundamentalLag > 0) {
-            // We found a significant peak, calculate the frequency
+            // if a significant peak found, calculate the frequency
             double frequency = SAMPLE_RATE / fundamentalLag;
+            // Check freq, remove if outside the range of any guitar string
             if (frequency < 65.0 || frequency > 450.0) {
                 return 0.0;
             }
             return frequency;
         } else {
-            // If no significant peak is found, return 0.0 (or a default value)
+            // If no significant peak is found, return 0.0
             return 0.0;
         }
     }
 
-    public static int getClosestString(double freq) {
-        double closestFreq = stringFrequencies[0];
-        int closestString = 0;
 
+    public static int getClosestString(double freq) {
+
+        double closestFreq = stringFrequencies[0]; // Init to 'Low E' Frequency
+        int closestString = 0; // Init to String Name 'Low E'
+
+        // Loop through String Frequencies, find distance between currentDetectedFreq & currentIterFreq
+        // Set ClosetString freq & String name
         for (int i = 1; i < stringFrequencies.length; i++) {
             double distance = Math.abs(freq - stringFrequencies[i]);
 
@@ -161,16 +225,17 @@ public class Main {
         }
     }
 
+
     public static void tuningLoop(TargetDataLine soundData) {
 
         while (true) {
 
-            byte[] buffer = new byte[BUFFER_SIZE];
-            int bytesRead = soundData.read(buffer, 0, buffer.length);
+            byte[] buffer = new byte[BUFFER_SIZE]; // Buffer to hold audio data
+            int bytesRead = soundData.read(buffer, 0, buffer.length); // Listen for audio data
 
             if (bytesRead > 0) {
-                double[] audioSamples = convertToAudioSamples(buffer, bytesRead);
-                double detectedFrequency = detectFrequency(audioSamples);
+                double[] audioSamples = convertToAudioSamples(buffer, bytesRead); // Convert audio data from raw data
+                double detectedFrequency = detectFrequency(audioSamples); //
 
                 if (detectedFrequency > 0) {
                     if (lockedStringIndex == -1) {
@@ -192,6 +257,7 @@ public class Main {
                 }
             }
 
+            // Small delay to stop from flooding the console
             try {
                 Thread.sleep(300);
             } catch (InterruptedException e) {
@@ -206,27 +272,34 @@ public class Main {
         Scanner scnr = new Scanner(System.in);
         System.out.println("Welcome to Java Guitar Tuner!");
 
-        // User selects recording device
+        // Allow User to select recording device
         Mixer.Info chosenRecDevice = getRecordingDevice(scnr);
         if (chosenRecDevice == null) {
             System.out.println("Please try a different device");
-            System.exit(1); // For now, exit program if device == null
+            System.exit(1);
         }
 
+        // Get tuning select from user, return chosen tuning's frequencies, & set to stringFrequencies variable
+        stringFrequencies = getUserTuning(scnr);
+
         try {
-            Mixer mixer = AudioSystem.getMixer(chosenRecDevice);
-            AudioFormat format = new AudioFormat(SAMPLE_RATE, SAMPLE_SIZE, CHANNEL_SIZE,true, false); // Specify the expected format;
+            Mixer mixer = AudioSystem.getMixer(chosenRecDevice); // Get correct recording device
+            AudioFormat format = new AudioFormat(SAMPLE_RATE, SAMPLE_SIZE, CHANNEL_SIZE,true, false); // Specify/set the expected format;
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, format); // Validates correct audio line chosen with desired format
 
-            // Verify that chosen device is supported
+            /*
+            * Verify that chosen device is supported
+            * Cast the raw audio to 'TargetDataLine' type
+            * Open/Start listening, Run Main Loop
+            * Out of loop, stop/close the listener
+            */
             if (mixer.isLineSupported(info)) {
                 TargetDataLine soundData = (TargetDataLine) mixer.getLine(info); // Cast the object to the specific type needed (TargetDataLine)
 
                 soundData.open(format); // open data stream
                 soundData.start();  // start listening
 
-                // Tuning Process Loop
-                tuningLoop(soundData);
+                tuningLoop(soundData);  // Tuning Process Loop
 
                 soundData.stop();   // stop listening
                 soundData.close();  // close stream
