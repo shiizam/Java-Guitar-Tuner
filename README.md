@@ -4,12 +4,12 @@ A simple guitar tuner made with Java. Currently only for standard tuning with al
 
 ## 🚀 Features
 
-- Standard Tuning
+- Standard, Drop D, & Half-Step Down Tunings
 - Automatic String ID - no need for manual selection
 
 ## Planned Features
 
-- Alternate Tunings
+- More Alternate Tunings
 - Modern UI
 
 ## 🛠️ Installation
