@@ -35,7 +35,7 @@ public class AudioManager {
      * @param audioSamples double[] - array of converted audio data
      * @param size int - length of the audioSamples array
      */
-    private static void applyHannWindow(double[] audioSamples, int size) {
+    static void applyHannWindow(double[] audioSamples, int size) {
         for (int i = 0; i < size; i++) {
             double hann = 0.5 * (1 - Math.cos(2 * Math.PI * i / (size - 1)));
             audioSamples[i] *= hann;
@@ -52,7 +52,7 @@ public class AudioManager {
      *
      *
      */
-    private static void calculateAutocorrelation(double[] audioSamples, double[] autocorrelation, int size) {
+    static void calculateAutocorrelation(double[] audioSamples, double[] autocorrelation, int size) {
         for (int lag = 0; lag < size; lag++) {
             for (int i = 0; i < size - lag; i++) {
                 autocorrelation[lag] += audioSamples[i] * audioSamples[i + lag];
@@ -72,7 +72,7 @@ public class AudioManager {
      * @param size int - the length of the audioSamples array
      *
      */
-    private static void normalizeAutocorrelation(double[] autocorrelation, int size) {
+    static void normalizeAutocorrelation(double[] autocorrelation, int size) {
         for (int lag = 0; lag < size; lag++) {
             autocorrelation[lag] /= autocorrelation[0];
         }
@@ -124,7 +124,7 @@ public class AudioManager {
 
 
     /**
-     * Get the closest string to the detected frequencies
+     * Get the closest string name to the detected frequency
      *
      * @param freq double - the post-processing frequency
      * @return closestString int - the index of the string closest to the input frequency
@@ -149,7 +149,11 @@ public class AudioManager {
 
 
     /**
-     * Feedback loop to notify user if the string is too low, too high, or in tune
+     * Feedback to notify user if the string is too low, too high, or in tune
+     *
+     * By finding the difference between targetFrequency & detectedFreq and then by
+     * comparing the difference to a tolerance deemed acceptable, in this case 2.0.
+     * The user is given feedback of 'too low', 'too high', or 'in tune'.
      *
      * @param detectedFreq double - the freq returned from the detectFrequency method
      */
