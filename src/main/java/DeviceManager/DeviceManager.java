@@ -6,26 +6,30 @@ import java.util.Scanner;
 
 public class DeviceManager {
 
+    public static Mixer.Info[] getAvailableDevices() {
+        return AudioSystem.getMixerInfo();
+    }
+
     /**
-     * Get user to select appropriate recording device.
+     * List all available devices
      *
-     * @param scnr Scanner - Scanner to get user choice
-     * @return Mixer.Info - The information about the chose recording device
+     * @param availableDevices Mixer.Info[] - An array of device info available on the computer
      */
-    public static Mixer.Info getRecordingDevice(Scanner scnr) {
-
-        // Get all recordingDevices
-        Mixer.Info[] recordingDevices = AudioSystem.getMixerInfo();
-
-        // Print all available devices
-        System.out.print("Currently available recording devices:");
-        for (int i = 0; i < recordingDevices.length; i++) {
-            System.out.println((i+1) + ": " + recordingDevices[i].getName());
+    public static void listAvailableDevices(Mixer.Info[] availableDevices) {
+        for (int i = 0; i < availableDevices.length; i++) {
+            System.out.println((i+1) + ": " + availableDevices[i].getName());
         }
+    }
 
-        // Get user choice
-        System.out.print("Select a recording device (1-" + recordingDevices.length + "): ");
-        int userChoice = Integer.parseInt(scnr.nextLine()) - 1;
+    /**
+     * Validate user choice & get selected recording device.
+     *
+     * @param userChoice int -
+     * @param recordingDevices Mixer.Info[] -
+     *
+     * @return Mixer.Info - The information about the chosen recording device
+     */
+    public static Mixer.Info getUserSelectedRecordingDevice(int userChoice, Mixer.Info[] recordingDevices) {
 
         // Validate user choice & return based on validation
         if (userChoice >= 0 && userChoice < recordingDevices.length) {
@@ -35,5 +39,4 @@ public class DeviceManager {
             return null;
         }
     }
-
 }
