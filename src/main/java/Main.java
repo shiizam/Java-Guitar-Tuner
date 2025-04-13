@@ -14,7 +14,6 @@ public class Main {
         System.out.println("Welcome to Java Guitar Tuner!");
 
         // Get all available devices
-        System.out.print("Currently available recording devices:");
         Mixer.Info[] availableDevices = DeviceManager.getAvailableDevices();
 
         // Print all available devices
@@ -27,12 +26,14 @@ public class Main {
         // Get Mixer info of user chosen device
         Mixer.Info chosenRecDevice = DeviceManager.getUserSelectedRecordingDevice(userChoice, availableDevices);
 
+        // Validate user selection of recording device
         if (chosenRecDevice == null) {
             System.out.println("Please try a different device");
             System.exit(1);
         }
 
         // Get tuning select from user, return chosen tuning's frequencies, & set to stringFrequencies variable
+        Tuner.listAvailableTunings();
         TunerConfig.stringFrequencies = Tuner.getUserTuning(scnr);
 
         try {

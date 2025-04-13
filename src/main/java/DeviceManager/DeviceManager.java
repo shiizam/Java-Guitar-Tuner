@@ -16,6 +16,7 @@ public class DeviceManager {
      * @param availableDevices Mixer.Info[] - An array of device info available on the computer
      */
     public static void listAvailableDevices(Mixer.Info[] availableDevices) {
+        System.out.print("Currently available recording devices:");
         for (int i = 0; i < availableDevices.length; i++) {
             System.out.println((i+1) + ": " + availableDevices[i].getName());
         }
