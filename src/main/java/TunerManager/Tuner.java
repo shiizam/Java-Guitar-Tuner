@@ -1,82 +1,105 @@
 package TunerManager;
 
-
 import javax.sound.sampled.TargetDataLine;
-import java.util.Scanner;
 
 import AudioManager.AudioManager;
 import TunerUtils.TunerConfig;
 
+
 public class Tuner {
 
+    // Object to hold buffer & bytesRead
+    private static class AudioChunk {
+        byte[] buffer;
+        int bytesRead;
+
+        AudioChunk(byte[] buffer, int bytesRead) {
+            this.buffer = buffer;
+            this.bytesRead = bytesRead;
+        }
+    }
+
     /**
-     * Get users to select a specified tuning.
-     *
-     * @param scnr Scanner - Scanner to get user tuning selection
-     * @return allTunings[i] double[] - return the appropriate freq in the allTunings array for chosen tuning
+     * Main loop of the guitar tuner
+     * @param soundData TargetDataLine - The raw audio data captured by the Mixer listener
      */
-    public static double[] getUserTuning(Scanner scnr) {
+    public static void tuningLoop(TargetDataLine soundData) {
+        while (true) {
+            AudioChunk audioChunk = captureAudio(soundData);    // Set buffer & capture audio
+
+            if (audioChunk.bytesRead > 0) {
+                double detectedFrequency = processAudio(audioChunk);
+
+                if (detectedFrequency > 0) {
+                    handleFrequencyLocking(detectedFrequency);  // Lock/unlock current string being tuned
+                    provideFeedback(detectedFrequency);         // Show tuning feedback if currently 'Locked'
+                }
+            }
+            printDelay();                                       // Small delay to stop from flooding the console
+        }
+    }
+
+    private static AudioChunk captureAudio(TargetDataLine soundData) {
+        byte[] buffer = new byte[TunerConfig.BUFFER_SIZE]; // Buffer to hold audio data
+        int bytesRead = soundData.read(buffer, 0, buffer.length); // Listen for audio data
+        return new AudioChunk(buffer, bytesRead);
+    }
+
+
+    private static double processAudio(AudioChunk audioChunk) {
+        double[] audioSamples = AudioManager.convertToAudioSamples(audioChunk.buffer, audioChunk.bytesRead); // Convert audio data from raw data
+        return AudioManager.detectFrequency(audioSamples);
+    }
+
+
+    private static void handleFrequencyLocking(double detectedFrequency) {
+        if (TunerConfig.lockedStringIndex == -1) {
+            TunerConfig.lockedStringIndex = AudioManager.getClosestString(detectedFrequency);
+        } else {
+            double lockedFreq = TunerConfig.stringFrequencies[TunerConfig.lockedStringIndex];
+            if (Math.abs(detectedFrequency - lockedFreq) > TunerConfig.UNLOCK_RADIUS_HZ) {
+                TunerConfig.lockedStringIndex = -1;
+            }
+        }
+    }
+
+    private static void provideFeedback(double detectedFrequency) {
+        if (TunerConfig.lockedStringIndex != -1) {
+            String feedback = AudioManager.matchStringFrequency(detectedFrequency);
+            System.out.println("[" + TunerConfig.getStringName(TunerConfig.lockedStringIndex) + "] " + detectedFrequency + " Hz -> " + feedback);
+        }
+    }
+
+
+    public static void listAvailableTunings() {
         System.out.println("Available tuning types:");
         for (int i = 0; i < TunerConfig.tuningTypes.length; i++) {
             System.out.println((i+1) + ": " + TunerConfig.tuningTypes[i]);
         }
+    }
 
-        // Get User Choice
-        System.out.println("Select a Tuning (1-" + TunerConfig.tuningTypes.length + "): ");
-        int userSelection = Integer.parseInt(scnr.nextLine()) - 1;
-
-        // Validate User Selection
-        if (userSelection >= 0 && userSelection < TunerConfig.tuningTypes.length) {
-            return TunerConfig.allTunings[userSelection];
+    /**
+     * Get users to select a specified tuning.
+     *
+     * @param tuningChoice int - User selected tuning choice
+     * @return allTunings[i] double[] - return the appropriate freq in the allTunings array for chosen tuning
+     */
+    public static double[] getUserTuning(int tuningChoice) {
+        if (tuningChoice >= 0 && tuningChoice < TunerConfig.tuningTypes.length) {
+            return TunerConfig.allTunings[tuningChoice];
         } else {
             System.out.println("Invalid selection. Defaulting to Standard tuning.");
             return TunerConfig.allTunings[0];
         }
     }
 
-    /**
-     * Main loop of the guitar tuner
-     *
-     * @param soundData TargetDataLine - The raw audio data captured by the Mixer listener
-     */
-    public static void tuningLoop(TargetDataLine soundData) {
-
-        while (true) {
-
-            byte[] buffer = new byte[TunerConfig.BUFFER_SIZE]; // Buffer to hold audio data
-            int bytesRead = soundData.read(buffer, 0, buffer.length); // Listen for audio data
-
-            if (bytesRead > 0) {
-                double[] audioSamples = AudioManager.convertToAudioSamples(buffer, bytesRead); // Convert audio data from raw data
-                double detectedFrequency = AudioManager.detectFrequency(audioSamples); //
-
-                if (detectedFrequency > 0) {
-                    if (TunerConfig.lockedStringIndex == -1) {
-                        TunerConfig.lockedStringIndex = AudioManager.getClosestString(detectedFrequency);
-                    } else {
-                        double lockedFreq = TunerConfig.stringFrequencies[TunerConfig.lockedStringIndex];
-                        if (Math.abs(detectedFrequency - lockedFreq) > TunerConfig.UNLOCK_RADIUS_HZ) {
-                            TunerConfig.lockedStringIndex = -1;
-                            continue;
-                        }
-                    }
-
-                    // Show tuning feedback if currently 'Locked'
-                    if (TunerConfig.lockedStringIndex != -1) {
-                        String feedback = AudioManager.matchStringFrequency(detectedFrequency);
-                        System.out.println("[" + TunerConfig.getStringName(TunerConfig.lockedStringIndex) + "] " + detectedFrequency + " Hz -> " + feedback);
-                    }
-
-                }
-            }
-
-            // Small delay to stop from flooding the console
-            try {
-                Thread.sleep(300);
-            } catch (InterruptedException e) {
-                System.out.println("Tuning interrupted!");
-                System.exit(1);
-            }
+    private static void printDelay() {
+        // Small delay to stop from flooding the console
+        try {
+            Thread.sleep(300);
+        } catch (InterruptedException e) {
+            System.out.println("Tuning interrupted!");
+            System.exit(1);
         }
     }
 }
