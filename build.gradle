@@ -22,4 +22,8 @@ test {
         events "passed", "skipped", "failed"
     }
 
+    // Suppress the Byte Buddy dynamic agent warning (This is when using Mockito)
+    jvmArgs += ["-XX:+EnableDynamicAgentLoading"]
+
+
 }
