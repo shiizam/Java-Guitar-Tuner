@@ -13,8 +13,20 @@ public class Main {
         Scanner scnr = new Scanner(System.in);
         System.out.println("Welcome to Java Guitar Tuner!");
 
-        // Allow User to select recording device
-        Mixer.Info chosenRecDevice = DeviceManager.getRecordingDevice(scnr);
+        // Get all available devices
+        System.out.print("Currently available recording devices:");
+        Mixer.Info[] availableDevices = DeviceManager.getAvailableDevices();
+
+        // Print all available devices
+        DeviceManager.listAvailableDevices(availableDevices);
+
+        // Get user choice
+        System.out.print("Select a recording device (1-" + availableDevices.length + "): ");
+        int userChoice = Integer.parseInt(scnr.nextLine()) - 1;
+
+        // Get Mixer info of user chosen device
+        Mixer.Info chosenRecDevice = DeviceManager.getUserSelectedRecordingDevice(userChoice, availableDevices);
+
         if (chosenRecDevice == null) {
             System.out.println("Please try a different device");
             System.exit(1);
@@ -37,14 +49,14 @@ public class Main {
             if (mixer.isLineSupported(info)) {
                 TargetDataLine soundData = (TargetDataLine) mixer.getLine(info); // Cast the object to the specific type needed (TargetDataLine)
 
-                soundData.open(format); // open data stream
-                soundData.start();  // start listening
+                soundData.open(format);         // open data stream
+                soundData.start();              // start listening
 
-                Tuner.tuningLoop(soundData);  // Tuning Process Loop
+                // Main Tuner Loop
+                Tuner.tuningLoop(soundData);
 
-                soundData.stop();   // stop listening
-                soundData.close();  // close stream
-
+                soundData.stop();               // stop listening
+                soundData.close();              // close stream
             } else {
                 System.out.println("Microphone selected is not supported. Please choose a different device.");
             }
@@ -52,5 +64,7 @@ public class Main {
         } catch (Exception e){
             e.printStackTrace();
         }
+
+        scnr.close();
     }
 }
