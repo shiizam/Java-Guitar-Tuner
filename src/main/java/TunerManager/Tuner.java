@@ -25,23 +25,24 @@ public class Tuner {
      */
     public static void tuningLoop(TargetDataLine soundData) {
         while (true) {
-            AudioChunk audioChunk = captureAudio(soundData);    // Set buffer & capture audio
+            AudioChunk audioChunk = captureAudio(soundData);            // Set buffer & capture audio
 
             if (audioChunk.bytesRead > 0) {
-                double detectedFrequency = processAudio(audioChunk);
+                double detectedFrequency = processAudio(audioChunk);    // Convert raw audio to formatted audio samples
 
                 if (detectedFrequency > 0) {
-                    handleFrequencyLocking(detectedFrequency);  // Lock/unlock current string being tuned
-                    provideFeedback(detectedFrequency);         // Show tuning feedback if currently 'Locked'
+                    handleFrequencyLocking(detectedFrequency);          // Lock/unlock current string being tuned
+                    provideFeedback(detectedFrequency);                 // Show tuning feedback if currently 'Locked'
                 }
             }
-            printDelay();                                       // Small delay to stop from flooding the console
+            printDelay();                                               // Small delay to stop from flooding the console
         }
     }
 
+
     private static AudioChunk captureAudio(TargetDataLine soundData) {
-        byte[] buffer = new byte[TunerConfig.BUFFER_SIZE]; // Buffer to hold audio data
-        int bytesRead = soundData.read(buffer, 0, buffer.length); // Listen for audio data
+        byte[] buffer = new byte[TunerConfig.BUFFER_SIZE];              // Buffer to hold audio data
+        int bytesRead = soundData.read(buffer, 0, buffer.length);   // Listen for audio data
         return new AudioChunk(buffer, bytesRead);
     }
 
@@ -63,6 +64,7 @@ public class Tuner {
         }
     }
 
+
     private static void provideFeedback(double detectedFrequency) {
         if (TunerConfig.lockedStringIndex != -1) {
             String feedback = AudioManager.matchStringFrequency(detectedFrequency);
@@ -77,6 +79,7 @@ public class Tuner {
             System.out.println((i+1) + ": " + TunerConfig.tuningTypes[i]);
         }
     }
+
 
     /**
      * Get users to select a specified tuning.
@@ -93,7 +96,8 @@ public class Tuner {
         }
     }
 
-    private static void printDelay() {
+
+    static void printDelay() {
         // Small delay to stop from flooding the console
         try {
             Thread.sleep(300);
