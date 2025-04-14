@@ -13,13 +13,22 @@ public class Main {
         Scanner scnr = new Scanner(System.in);
         System.out.println("Welcome to Java Guitar Tuner!");
 
-        // Get all available devices
-        Mixer.Info[] availableDevices = DeviceManager.getAvailableDevices();
+        Mixer.Info chosenRecDevice = selectRecodingDevice(scnr);    // Select recording device
+        double[] selectedTuning = selectTuning(scnr);               // Select tuning choice
 
-        // Print all available devices
-        DeviceManager.listAvailableDevices(availableDevices);
+        runTuner(chosenRecDevice, selectedTuning);                  // Main Loop of the tuner
 
-        // Get user choice
+        scnr.close();                                               // Close scanner
+    }
+
+    /*                      */
+    /* HELPER METHODS BELOW */
+    /*                      */
+    private static Mixer.Info selectRecodingDevice(Scanner scnr) {
+
+        Mixer.Info[] availableDevices = DeviceManager.getAvailableDevices();                    // Get all available devices
+        DeviceManager.listAvailableDevices(availableDevices);                                   // Print all available devices
+
         System.out.print("Select a recording device (1-" + availableDevices.length + "): ");
         int userChoice = Integer.parseInt(scnr.nextLine()) - 1;
 
@@ -32,9 +41,23 @@ public class Main {
             System.exit(1);
         }
 
+        return chosenRecDevice;
+    }
+
+
+    private static double[] selectTuning(Scanner scnr) {
         // Get tuning select from user, return chosen tuning's frequencies, & set to stringFrequencies variable
         Tuner.listAvailableTunings();
-        TunerConfig.stringFrequencies = Tuner.getUserTuning(scnr);
+
+        System.out.println("Select a Tuning (1-" + TunerConfig.tuningTypes.length + "): ");
+        int tuningChoice = Integer.parseInt(scnr.nextLine()) - 1;
+
+        return Tuner.getUserTuning(tuningChoice);
+    }
+
+
+    private static void runTuner(Mixer.Info chosenRecDevice, double[] stringFrequencies) {
+        TunerConfig.stringFrequencies = stringFrequencies;
 
         try {
             Mixer mixer = AudioSystem.getMixer(chosenRecDevice); // Get correct recording device
@@ -42,30 +65,28 @@ public class Main {
             DataLine.Info info = new DataLine.Info(TargetDataLine.class, format); // Validates correct audio line chosen with desired format
 
             /*
-            * Verify that chosen device is supported
-            * Cast the raw audio to 'TargetDataLine' type
-            * Open/Start listening, Run Main Loop
-            * Out of loop, stop/close the listener
-            */
+             * Verify that chosen device is supported
+             * Cast the raw audio to 'TargetDataLine' type
+             * Open/Start listening, Run Main Loop
+             * Out of loop, stop/close the listener
+             */
             if (mixer.isLineSupported(info)) {
                 TargetDataLine soundData = (TargetDataLine) mixer.getLine(info); // Cast the object to the specific type needed (TargetDataLine)
 
                 soundData.open(format);         // open data stream
                 soundData.start();              // start listening
 
-                // Main Tuner Loop
-                Tuner.tuningLoop(soundData);
+                Tuner.tuningLoop(soundData);    // Main Tuner Loop
 
                 soundData.stop();               // stop listening
                 soundData.close();              // close stream
             } else {
-                System.out.println("Microphone selected is not supported. Please choose a different device.");
+                System.out.println("Microphone is not supported. Please choose a different device.");
             }
 
         } catch (Exception e){
             e.printStackTrace();
         }
-
-        scnr.close();
     }
+
 }
